@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"os"
@@ -26,6 +27,10 @@ type ReadInput struct {
 	FileName string `json:"file_name"`
 }
 
+type ListDirectoryInp struct {
+	DirPath string `json:"dir_path"`
+}
+
 func write_file(ctx tool.Context, input WriteInput) (string, error) {
 	file, err := os.OpenFile(input.FileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -43,6 +48,18 @@ func read_file(ctx tool.Context, input ReadInput) (string, error) {
 		return "Failed to read the content of the file " + input.FileName, err
 	} else {
 		return string(content_bytes), nil
+	}
+}
+
+func list_directory(ctx tool.Context, input ListDirectoryInp) (string, error) {
+	if files, err := os.ReadDir(input.DirPath); err != nil {
+		return "Error listing dir: " + input.DirPath, err
+	} else {
+		s := "FileName\tIsDir\n\n"
+		for _, file := range files {
+			s += fmt.Sprintf("%s\t%s", file.Name(), file.IsDir())
+		}
+		return s, nil
 	}
 }
 
@@ -76,12 +93,26 @@ func main() {
 		log.Fatalf("Failed to create read_file tool %v", err)
 	}
 
+	list_directory_tool, err := functiontool.New(functiontool.Config{
+		Name:        "list_directory",
+		Description: "List the directory and returs file name and if it is a dir",
+	},
+		list_directory,
+	)
+
+	if err != nil {
+		log.Fatalf("Failed to create read_file tool %v", err)
+	}
+
 	analyzerAgent, err := llmagent.New(llmagent.Config{
 		Name:        "analyzer_agent",
 		Model:       model,
 		Description: "Analyzes user request and the code base",
 		Instruction: `You are excellent at understanding the user's request. Understand what user wants, analyze the code base by reading only the necessary files and genearting analytical thoughts about each file. 
 			
+			Use 'list_directory' tool to list the directory.
+			It is always a good idea to explore the directory to get the idea of the project and files.
+
 			Use 'read_file' tool to read the contents of the file.
 			Always read the content of the files before analyzing and generating thoughts about it.
 
@@ -108,6 +139,10 @@ func main() {
 		## End of analysis
 		`,
 		OutputKey: "analysis",
+		Tools: []tool.Tool{
+			read_file_tool,
+			list_directory_tool,
+		},
 	})
 
 	if err != nil {
@@ -145,6 +180,9 @@ func main() {
 			Use 'read_file' tool to read the contents of the file.
 			Always read the content of existing file before writing to the the file.
 
+			Use 'list_directory' tool to list the directory.
+			It is always a good idea to explore the directory to get the idea of the project and files.
+
 
 		Given is the user request, repo analysis and implementation plan, execute things accordingly.
 
@@ -158,6 +196,7 @@ func main() {
 		Tools: []tool.Tool{
 			write_file_tool,
 			read_file_tool,
+			list_directory_tool,
 		},
 	})
 
