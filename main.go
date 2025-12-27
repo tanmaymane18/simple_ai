@@ -26,6 +26,26 @@ type ReadInput struct {
 	FileName string `json:"file_name"`
 }
 
+func write_file(ctx tool.Context, input WriteInput) (string, error) {
+	file, err := os.OpenFile(input.FileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return "Failed to open/create file " + input.FileName, err
+	}
+	defer file.Close()
+	if _, err := file.WriteString(input.Content); err != nil {
+		return "Failed to write the content to file " + input.FileName, err
+	}
+	return "Successfully written the content to file " + input.Content, nil
+}
+
+func read_file(ctx tool.Context, input ReadInput) (string, error) {
+	if content_bytes, err := os.ReadFile(input.FileName); err != nil {
+		return "Failed to read the content of the file " + input.FileName, err
+	} else {
+		return string(content_bytes), nil
+	}
+}
+
 func main() {
 	ctx := context.Background()
 
@@ -38,17 +58,7 @@ func main() {
 		Name:        "write_file",
 		Description: "Writes content to the requested file.",
 	},
-		func(ctx tool.Context, input WriteInput) (string, error) {
-			file, err := os.OpenFile(input.FileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				return "Failed to open/create file " + input.FileName, err
-			}
-			defer file.Close()
-			if _, err := file.WriteString(input.Content); err != nil {
-				return "Failed to write the content to file " + input.FileName, err
-			}
-			return "Successfully written the content to file " + input.Content, nil
-		},
+		write_file,
 	)
 
 	if err != nil {
@@ -59,13 +69,7 @@ func main() {
 		Name:        "read_file",
 		Description: "Reads content of the requested file.",
 	},
-		func(ctx tool.Context, input ReadInput) (string, error) {
-			var content_bytes []byte
-			if content_bytes, err = os.ReadFile(input.FileName); err != nil {
-				return "Failed to read the content of the file " + input.FileName, err
-			}
-			return string(content_bytes), nil
-		},
+		read_file,
 	)
 
 	if err != nil {
