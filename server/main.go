@@ -32,7 +32,7 @@ type ListDirectoryInp struct {
 }
 
 func write_file(ctx tool.Context, input WriteInput) (string, error) {
-	file, err := os.OpenFile(input.FileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(input.FileName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return "Failed to open/create file " + input.FileName, err
 	}
