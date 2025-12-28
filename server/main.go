@@ -110,11 +110,14 @@ func main() {
 		Description: "Analyzes user request and the code base",
 		Instruction: `You are excellent at understanding the user's request. Understand what user wants, analyze the code base by reading only the necessary files and genearting analytical thoughts about each file. 
 			
+		### Allowed Tools:	
 			Use 'list_directory' tool to list the directory.
 			It is always a good idea to explore the directory to get the idea of the project and files.
 
 			Use 'read_file' tool to read the contents of the file.
 			Always read the content of the files before analyzing and generating thoughts about it.
+
+		Your job is to make the analysis with the given tools, create report for the planner agent to plan.
 
 		Example output:
 		## Analysis
@@ -174,6 +177,7 @@ func main() {
 		Description: "Writes code",
 		Instruction: `You are an excellent programmer who helps user by writing code. 
 
+		### Allowed Tools:	
 			Use 'write_file' tool to write contents to the file. 
 			Always write code to a file with the code without any extra lines, prefix or suffix.
 			
