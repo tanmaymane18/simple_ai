@@ -153,7 +153,7 @@ func main() {
 		Name:        "planner_agent",
 		Model:       model,
 		Description: "Generates execution plan",
-		Instruction: `You are an excellent at planning software engineering tasks.
+		Instruction: `You are excellent at planning software engineering tasks.
 		Given is the analysis of what user wants and the repo analysis.
 
 		### User Request and Repo Analysis
