@@ -191,7 +191,7 @@ func main() {
 		{analysis}
 
 		### Implementation Plan
-		{implementation plan}
+		{implementation_plan}
 		`,
 		Tools: []tool.Tool{
 			write_file_tool,
