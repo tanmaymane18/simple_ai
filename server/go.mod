@@ -1,11 +1,10 @@
-module simple_ai
+module simple_ai_server
 
 go 1.24.4
 
 toolchain go1.24.11
 
 require (
-	github.com/moby/sys/sequential v0.6.0
 	google.golang.org/adk v0.3.0
 	google.golang.org/genai v1.40.0
 )
