@@ -1,4 +1,6 @@
-package main
+package simple_ai_client
+
+import "google.golang.org/genai"
 
 type EventActions struct {
 	StateDelta    map[string]any   `json:"stateDelta"`
@@ -43,5 +45,3 @@ type AdkRequest struct {
 
 	StateDelta *map[string]any `json:"stateDelta,omitempty"`
 }
-
-

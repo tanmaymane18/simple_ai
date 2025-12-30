@@ -1,4 +1,4 @@
-package main
+package simple_ai_client
 
 import (
 	"bytes"
@@ -10,6 +10,11 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/genai"
 )
+
+type AdkClient struct {
+	sv_url      string
+	adk_session Session
+}
 
 func InitAdkClient() AdkClient {
 	return AdkClient{
