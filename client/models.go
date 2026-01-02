@@ -1,4 +1,4 @@
-package simple_ai_client
+package simple_ai
 
 import "google.golang.org/genai"
 
