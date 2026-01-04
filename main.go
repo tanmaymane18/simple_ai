@@ -25,6 +25,7 @@ type model struct {
 	messages    []string
 	textarea    textarea.Model
 	senderStyle lipgloss.Style
+	aiStyle     lipgloss.Style
 	err         error
 }
 
@@ -50,6 +51,7 @@ Type a message and press Enter to send.`)
 		textarea:    ta,
 		messages:    []string{},
 		senderStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
+		aiStyle:     lipgloss.NewStyle().Foreground(lipgloss.Color("202")),
 		err:         nil,
 	}
 }
@@ -122,6 +124,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			saCmd = func() tea.Msg {
 				return ac.MakeRequest(m.textarea.Value())
 			}
+
 		}
 	case errMsg:
 		m.err = msg
