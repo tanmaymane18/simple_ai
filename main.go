@@ -18,6 +18,8 @@ var ac simple_ai.AdkClient
 
 type errMsg error
 
+type noop struct{}
+
 type model struct {
 	viewport    viewport.Model
 	messages    []string
@@ -66,11 +68,17 @@ func (m model) View() string {
 	)
 }
 
+func noopCmd() tea.Msg {
+	return noop{}
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		tiCmd tea.Cmd
 		vpCmd tea.Cmd
+		saCmd tea.Cmd
 	)
+	saCmd = noopCmd
 	m.textarea, tiCmd = m.textarea.Update(msg)
 	m.viewport, vpCmd = m.viewport.Update(msg)
 
@@ -81,6 +89,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			fmt.Println("Session init failed!")
 		}
+	case simple_ai.MsgSuccessResponse:
+		msg = simple_ai.MsgSuccessResponse(msg)
+		m.messages = append(m.messages, m.aiStyle.Render("AI: ")+msg.Response)
+		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
+		m.textarea.Reset()
+		m.viewport.GotoBottom()
+	case simple_ai.MsgFailureResponse:
+		msg = simple_ai.MsgFailureResponse(msg)
+		m.messages = append(m.messages, m.aiStyle.Render("AI: ")+msg.FailureMsg)
+		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
+		m.textarea.Reset()
+		m.viewport.GotoBottom()
 	case tea.WindowSizeMsg:
 		m.viewport.Width = msg.Width
 		m.textarea.SetWidth(msg.Width)
@@ -95,21 +115,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			fmt.Println(m.textarea.Value())
 			return m, tea.Quit
 		case tea.KeyEnter:
-			var response simple_ai.MsgResponse
-			response = ac.MakeRequest(m.textarea.Value())
-			if response.Success {
-				m.messages = append(m.messages, m.senderStyle.Render("You: ")+m.textarea.Value())
-				m.messages = append(m.messages, m.senderStyle.Render("AI: ")+response.Response)
-				m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
-				m.textarea.Reset()
-				m.viewport.GotoBottom()
+			m.messages = append(m.messages, m.senderStyle.Render("You: ")+m.textarea.Value())
+			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
+			m.textarea.Reset()
+			m.viewport.GotoBottom()
+			saCmd = func() tea.Msg {
+				return ac.MakeRequest(m.textarea.Value())
 			}
 		}
 	case errMsg:
 		m.err = msg
 		return m, nil
 	}
-	return m, tea.Batch(tiCmd, vpCmd)
+	return m, tea.Batch(tiCmd, vpCmd, saCmd)
 }
 
 func main() {
