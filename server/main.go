@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-
 	"os"
 
 	"google.golang.org/adk/agent"
@@ -57,7 +56,7 @@ func list_directory(ctx tool.Context, input ListDirectoryInp) (string, error) {
 	} else {
 		s := "FileName\tIsDir\n\n"
 		for _, file := range files {
-			s += fmt.Sprintf("%s\t%s", file.Name(), file.IsDir())
+			s += fmt.Sprintf("%s\t%b\n", file.Name(), file.IsDir())
 		}
 		return s, nil
 	}
