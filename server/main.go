@@ -9,9 +9,10 @@ import (
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/agent/llmagent"
 	"google.golang.org/adk/agent/workflowagents/sequentialagent"
-	"google.golang.org/adk/cmd/launcher"
-	"google.golang.org/adk/cmd/launcher/full"
+	"google.golang.org/adk/artifact"
 	"google.golang.org/adk/model/gemini"
+	"google.golang.org/adk/runner"
+	"google.golang.org/adk/session"
 	"google.golang.org/adk/tool"
 	"google.golang.org/adk/tool/functiontool"
 	"google.golang.org/genai"
@@ -218,15 +219,43 @@ func main() {
 			Description: "Executes a software engineering task request.",
 		},
 	})
-
-	rootagent := codepipeline
-
-	config := &launcher.Config{
-		AgentLoader: agent.NewSingleLoader(rootagent),
+	sessionService := session.InMemoryService()
+	appName := "simple_ai"
+	userId := "user_id"
+	resp, err := sessionService.Create(ctx, &session.CreateRequest{
+		AppName: appName,
+		UserID:  userId,
+	})
+	if err != nil {
+		log.Fatalf("failed to create the session service: %v", err)
 	}
+	session := resp.Session
+	r, err := runner.New(runner.Config{
+		AppName:         appName,
+		Agent:           codepipeline,
+		SessionService:  sessionService,
+		ArtifactService: artifact.InMemoryService(),
+	})
+	if err != nil {
+		log.Fatalf("failed to create runner: %v", err)
+	}
+	userInput := "Write a python script demonstrating tower of hanoi."
+	userMsg := genai.NewContentFromText(userInput, genai.RoleUser)
+	StreamingModeNone := "none"
+	for event, err := range r.Run(ctx, userId, session.ID(), userMsg, agent.RunConfig{StreamingMode: agent.StreamingMode(StreamingModeNone)}) {
+		if err != nil {
+			fmt.Printf("\nAGENT ERROR: %v\n", err)
+		} else {
+			if event.LLMResponse.Content == nil {
+				continue
+			}
 
-	l := full.NewLauncher()
-	if err := l.Execute(ctx, config, os.Args[1:]); err != nil {
-		log.Fatalf("Failed to execute agent: %v\n\n%s", err, l.CommandLineSyntax())
+			text := ""
+			for _, p := range event.LLMResponse.Content.Parts {
+				text += p.Text
+			}
+			fmt.Print(text)
+
+		}
 	}
 }
