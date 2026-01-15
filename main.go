@@ -9,12 +9,12 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"simple_ai/client"
+	"simple_ai/agent"
 )
 
 const gap = "\n\n"
 
-var ac simple_ai.AdkClient
+var sa agent.SimpleAiAgent
 
 type errMsg error
 
@@ -45,7 +45,7 @@ func initModel() model {
 	vp.SetContent(`Welcome to hte chat room!
 Type a message and press Enter to send.`)
 	ta.KeyMap.InsertNewline.SetEnabled(false)
-	ac = simple_ai.InitAdkClient()
+	sa.InitSimpleAiAgent()
 	return model{
 		viewport:    vp,
 		textarea:    ta,
@@ -57,7 +57,7 @@ Type a message and press Enter to send.`)
 }
 
 func (m model) Init() tea.Cmd {
-	return ac.CreateSession
+	return sa.StartSession
 }
 
 func (m model) View() string {
@@ -85,20 +85,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.viewport, vpCmd = m.viewport.Update(msg)
 
 	switch msg := msg.(type) {
-	case simple_ai.MsgStatus:
+	case agent.MsgStatus:
 		if bool(msg) {
 			fmt.Println("Session init properly")
 		} else {
 			fmt.Println("Session init failed!")
 		}
-	case simple_ai.MsgSuccessResponse:
-		msg = simple_ai.MsgSuccessResponse(msg)
+	case agent.MsgSuccessResponse:
+		msg = agent.MsgSuccessResponse(msg)
 		m.messages = append(m.messages, m.aiStyle.Render("AI: ")+msg.Response)
 		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
 		m.textarea.Reset()
 		m.viewport.GotoBottom()
-	case simple_ai.MsgFailureResponse:
-		msg = simple_ai.MsgFailureResponse(msg)
+	case agent.MsgFailureResponse:
+		msg = agent.MsgFailureResponse(msg)
 		m.messages = append(m.messages, m.aiStyle.Render("AI: ")+msg.FailureMsg)
 		m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
 		m.textarea.Reset()
@@ -122,7 +122,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.textarea.Reset()
 			m.viewport.GotoBottom()
 			saCmd = func() tea.Msg {
-				return ac.MakeRequest(m.textarea.Value())
+				return sa.HandleUserInput(m.textarea.Value())
 			}
 
 		}
