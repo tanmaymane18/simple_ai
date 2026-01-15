@@ -1,8 +1,9 @@
-package main
+package agent
 
 import (
 	"context"
 	"fmt"
+	tea "github.com/charmbracelet/bubbletea"
 	"log"
 	"os"
 
@@ -10,6 +11,7 @@ import (
 	"google.golang.org/adk/agent/llmagent"
 	"google.golang.org/adk/agent/workflowagents/sequentialagent"
 	"google.golang.org/adk/artifact"
+	"google.golang.org/adk/model"
 	"google.golang.org/adk/model/gemini"
 	"google.golang.org/adk/runner"
 	"google.golang.org/adk/session"
@@ -17,6 +19,16 @@ import (
 	"google.golang.org/adk/tool/functiontool"
 	"google.golang.org/genai"
 )
+
+type MsgStatus bool
+
+type MsgSuccessResponse struct {
+	Response string
+}
+
+type MsgFailureResponse struct {
+	FailureMsg string
+}
 
 type WriteInput struct {
 	FileName string `json:"file_name"`
@@ -63,14 +75,23 @@ func list_directory(ctx tool.Context, input ListDirectoryInp) (string, error) {
 	}
 }
 
-func main() {
-	ctx := context.Background()
+type SimpleAiAgent struct {
+	Ctx         context.Context
+	model       model.LLM
+	agent       agent.Agent
+	agentRunner *runner.Runner
+	session     session.Session
+	appName     string
+	userId      string
+}
 
-	model, err := gemini.NewModel(ctx, "gemini-2.5-pro", &genai.ClientConfig{APIKey: os.Getenv("GOOGLE_API_KEY")})
+func (sa *SimpleAiAgent) InitSimpleAiAgent() {
+	sa.Ctx = context.Background()
+	model, err := gemini.NewModel(sa.Ctx, "gemini-2.5-pro", &genai.ClientConfig{APIKey: os.Getenv("GOOGLE_API_KEY")})
 	if err != nil {
 		log.Fatalf("Failed to create model: %v", err)
 	}
-
+	sa.model = model
 	write_file_tool, err := functiontool.New(functiontool.Config{
 		Name:        "write_file",
 		Description: "Writes content to the requested file.",
@@ -109,13 +130,13 @@ func main() {
 		Model:       model,
 		Description: "Analyzes user request and the code base",
 		Instruction: `You are excellent at understanding the user's request. Understand what user wants, analyze the code base by reading only the necessary files and genearting analytical thoughts about each file. 
-			
-		### Allowed Tools:	
-			Use 'list_directory' tool to list the directory.
-			It is always a good idea to explore the directory to get the idea of the project and files.
 
-			Use 'read_file' tool to read the contents of the file.
-			Always read the content of the files before analyzing and generating thoughts about it.
+		### Allowed Tools:	
+		Use 'list_directory' tool to list the directory.
+		It is always a good idea to explore the directory to get the idea of the project and files.
+
+		Use 'read_file' tool to read the contents of the file.
+		Always read the content of the files before analyzing and generating thoughts about it.
 
 		Your job is to make the analysis with the given tools, create report for the planner agent to plan.
 
@@ -161,7 +182,7 @@ func main() {
 
 		### User Request and Repo Analysis
 		{analysis}
-		
+
 		Generate a implementation plan in markdown bullet-points to resolve the user request.
 		`,
 		OutputKey: "implementation_plan",
@@ -178,14 +199,14 @@ func main() {
 		Instruction: `You are an excellent programmer who helps user by writing code. 
 
 		### Allowed Tools:	
-			Use 'write_file' tool to write contents to the file. 
-			Always write code to a file with the code without any extra lines, prefix or suffix.
-			
-			Use 'read_file' tool to read the contents of the file.
-			Always read the content of existing file before writing to the the file.
+		Use 'write_file' tool to write contents to the file. 
+		Always write code to a file with the code without any extra lines, prefix or suffix.
 
-			Use 'list_directory' tool to list the directory.
-			It is always a good idea to explore the directory to get the idea of the project and files.
+		Use 'read_file' tool to read the contents of the file.
+		Always read the content of existing file before writing to the the file.
+
+		Use 'list_directory' tool to list the directory.
+		It is always a good idea to explore the directory to get the idea of the project and files.
 
 
 		Given is the user request, repo analysis and implementation plan, execute things accordingly.
@@ -208,7 +229,7 @@ func main() {
 		log.Fatalf("Failed to create code_agent %v", err)
 	}
 
-	codepipeline, err := sequentialagent.New(sequentialagent.Config{
+	sa.agent, err = sequentialagent.New(sequentialagent.Config{
 		AgentConfig: agent.Config{
 			Name: "CodePipelineAgent",
 			SubAgents: []agent.Agent{
@@ -219,32 +240,43 @@ func main() {
 			Description: "Executes a software engineering task request.",
 		},
 	})
+}
+
+func (sa *SimpleAiAgent) StartSession() tea.Msg {
 	sessionService := session.InMemoryService()
-	appName := "simple_ai"
-	userId := "user_id"
-	resp, err := sessionService.Create(ctx, &session.CreateRequest{
-		AppName: appName,
-		UserID:  userId,
+	sa.appName = "simple_ai"
+	sa.userId = "user_id"
+	resp, err := sessionService.Create(sa.Ctx, &session.CreateRequest{
+		AppName: sa.appName,
+		UserID:  sa.userId,
 	})
 	if err != nil {
 		log.Fatalf("failed to create the session service: %v", err)
+		return MsgStatus(false)
 	}
 	session := resp.Session
+	sa.session = session
 	r, err := runner.New(runner.Config{
-		AppName:         appName,
-		Agent:           codepipeline,
+		AppName:         sa.appName,
+		Agent:           sa.agent,
 		SessionService:  sessionService,
 		ArtifactService: artifact.InMemoryService(),
 	})
 	if err != nil {
 		log.Fatalf("failed to create runner: %v", err)
+		return MsgStatus(false)
 	}
-	userInput := "Write a python script demonstrating tower of hanoi."
+	sa.agentRunner = r
+	return MsgStatus(true)
+}
+
+func (sa *SimpleAiAgent) HandleUserInput(userInput string) tea.Msg {
 	userMsg := genai.NewContentFromText(userInput, genai.RoleUser)
 	StreamingModeNone := "none"
-	for event, err := range r.Run(ctx, userId, session.ID(), userMsg, agent.RunConfig{StreamingMode: agent.StreamingMode(StreamingModeNone)}) {
+	for event, err := range sa.agentRunner.Run(sa.Ctx, sa.userId, sa.session.ID(), userMsg, agent.RunConfig{StreamingMode: agent.StreamingMode(StreamingModeNone)}) {
 		if err != nil {
 			fmt.Printf("\nAGENT ERROR: %v\n", err)
+			return MsgFailureResponse{FailureMsg: "Agent error while in runner"}
 		} else {
 			if event.LLMResponse.Content == nil {
 				continue
@@ -254,8 +286,8 @@ func main() {
 			for _, p := range event.LLMResponse.Content.Parts {
 				text += p.Text
 			}
-			fmt.Print(text)
-
+			return MsgSuccessResponse{Response: text}
 		}
 	}
+	return MsgFailureResponse{FailureMsg: "Some uncaught error"}
 }
