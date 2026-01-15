@@ -119,11 +119,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			m.messages = append(m.messages, m.senderStyle.Render("You: ")+m.textarea.Value())
 			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
+			userInput := m.textarea.Value()
+			saCmd = func() tea.Msg {
+				return sa.HandleUserInput(userInput)
+			}
 			m.textarea.Reset()
 			m.viewport.GotoBottom()
-			saCmd = func() tea.Msg {
-				return sa.HandleUserInput(m.textarea.Value())
-			}
 
 		}
 	case errMsg:
