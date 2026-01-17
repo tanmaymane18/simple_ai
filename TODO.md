@@ -3,6 +3,6 @@
 - [x] Integrate it with TUI
     - [x] Fix the runner, handle events for all agents, final respone?
     - [ ] Make it streaming
-- [ ] Add bubble tea spinner component
+- [x] Add bubble tea spinner component
 - [ ] Use two agent architecture - planning and build agent
 - [ ] Integrate [skills](https://code.claude.com/docs/en/skills) in the agents to manage the context
