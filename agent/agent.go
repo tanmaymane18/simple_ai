@@ -273,6 +273,7 @@ func (sa *SimpleAiAgent) StartSession() tea.Msg {
 func (sa *SimpleAiAgent) HandleUserInput(userInput string) tea.Msg {
 	userMsg := genai.NewContentFromText(userInput, genai.RoleUser)
 	StreamingModeNone := "none"
+	text := ""
 	for event, err := range sa.agentRunner.Run(sa.Ctx, sa.userId, sa.session.ID(), userMsg, agent.RunConfig{StreamingMode: agent.StreamingMode(StreamingModeNone)}) {
 		if err != nil {
 			fmt.Printf("\nAGENT ERROR: %v\n", err)
@@ -281,13 +282,10 @@ func (sa *SimpleAiAgent) HandleUserInput(userInput string) tea.Msg {
 			if event.LLMResponse.Content == nil {
 				continue
 			}
-
-			text := ""
 			for _, p := range event.LLMResponse.Content.Parts {
 				text += p.Text
 			}
-			return MsgSuccessResponse{Response: text}
 		}
 	}
-	return MsgFailureResponse{FailureMsg: "Some uncaught error"}
+	return MsgSuccessResponse{Response: text}
 }
